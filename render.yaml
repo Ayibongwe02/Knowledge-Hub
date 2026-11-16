@@ -1,0 +1,44 @@
+# Render Blueprint for Knowledge Hub (free tier).
+# Place this file at the ROOT of your repo (replacing the existing render.yaml),
+# push to GitHub, then in Render: New + -> Blueprint -> pick the repo.
+#
+# Render will create:
+#   1. a free Postgres database (knowledge-hub-db)
+#   2. a free Docker web service (knowledge-hub)
+# and inject the database connection string into the app as DATABASE_URL.
+# On every boot the app applies migrations/0001_auth.sql automatically.
+
+databases:
+  - name: knowledge-hub-db
+    plan: free
+    region: frankfurt          # keep identical to the web service region
+    databaseName: knowledge_hub
+    user: knowledge_hub
+    ipAllowList: []            # no external access; only the app connects (internal URL)
+
+services:
+  - type: web
+    name: knowledge-hub
+    runtime: docker
+    plan: free
+    region: frankfurt          # must match the database region
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: NITRO_PRESET
+        value: node-server
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      # BETTER_AUTH_URL is not needed on the default onrender.com URL
+      # (the app uses RENDER_EXTERNAL_URL). Add it only for a custom domain.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: knowledge-hub-db
+          property: connectionString
